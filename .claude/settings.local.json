@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm --version)",
+      "PowerShell(pnpm --version)",
+      "PowerShell(npm --version)",
+      "PowerShell(node --version)",
+      "mcp__Claude_in_Chrome__navigate"
+    ]
+  }
+}
