@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { AuditSummaryView } from "@/components/audit-summary-view"
+import { AuditChecklistForm } from "@/components/audit-checklist-form"
 import { getAudit } from "@/lib/audit-store"
 import { useCurrentUser } from "@/lib/use-current-user"
 import { canEdit } from "@/lib/roles"
 import type { AuditRecord } from "@/lib/audit-types"
 
-export default function ViewAuditPage() {
+export default function EditAuditPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
   const [audit, setAudit] = useState<AuditRecord | null | undefined>(undefined)
@@ -24,7 +24,13 @@ export default function ViewAuditPage() {
     }
   }, [params.id])
 
-  if (audit === undefined) return null
+  useEffect(() => {
+    if (user === null || (user && !canEdit(user.role))) {
+      router.replace(`/audit/${params.id}`)
+    }
+  }, [user, params.id, router])
+
+  if (audit === undefined || user === undefined) return null
 
   if (audit === null) {
     return (
@@ -37,5 +43,7 @@ export default function ViewAuditPage() {
     )
   }
 
-  return <AuditSummaryView audit={audit} canEditAudit={!!user && canEdit(user.role)} />
+  if (!user || !canEdit(user.role)) return null
+
+  return <AuditChecklistForm initial={audit} backHref={`/audit/${audit.id}`} />
 }

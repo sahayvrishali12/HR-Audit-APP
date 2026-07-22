@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { FileText, Sparkles } from "lucide-react"
+import { FileText, Sparkles, Wand2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,18 +12,29 @@ import { Progress } from "@/components/ui/progress"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { MaturityBadge, PriorityBadge } from "@/components/maturity-badge"
+import { MaturityBadge } from "@/components/maturity-badge"
 import { AUDIT_DOCUMENTS } from "@/lib/documents"
 import { computeScore } from "@/lib/scoring"
 import { saveAudit } from "@/lib/audit-store"
+import { generateOrgSummaryDraft } from "@/lib/org-summary"
 import type { AuditRecord, DocStatus } from "@/lib/audit-types"
 
-export function AuditChecklistForm({ initial }: { initial: AuditRecord }) {
+export function AuditChecklistForm({
+  initial,
+  backHref = "/dashboard",
+}: {
+  initial: AuditRecord
+  backHref?: string
+}) {
   const router = useRouter()
   const [audit, setAudit] = useState<AuditRecord>(initial)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState("")
 
-  const { scorePct, maturity } = useMemo(() => computeScore(audit.documentStatus), [audit.documentStatus])
+  const { scorePct, maturity, availableCount, totalCount } = useMemo(
+    () => computeScore(audit.documentStatus),
+    [audit.documentStatus],
+  )
 
   function updateField<K extends keyof AuditRecord>(key: K, value: AuditRecord[K]) {
     setSaved(false)
@@ -35,15 +46,29 @@ export function AuditChecklistForm({ initial }: { initial: AuditRecord }) {
     setAudit((prev) => ({ ...prev, documentStatus: { ...prev.documentStatus, [docId]: status } }))
   }
 
+  function handleGenerateAbout() {
+    updateField("aboutOrganization", generateOrgSummaryDraft(audit.organizationName, audit.department))
+  }
+
   async function handleSave() {
-    await saveAudit(audit)
+    setError("")
+    const ok = await saveAudit(audit)
+    if (!ok) {
+      setError("Could not save — you may not have permission to edit this audit.")
+      return
+    }
     setSaved(true)
     router.push(`/audit/${audit.id}`)
     router.refresh()
   }
 
   async function handleViewReport() {
-    await saveAudit(audit)
+    setError("")
+    const ok = await saveAudit(audit)
+    if (!ok) {
+      setError("Could not save — you may not have permission to edit this audit.")
+      return
+    }
     setSaved(true)
     router.push(`/audit/${audit.id}/report`)
   }
@@ -83,7 +108,20 @@ export function AuditChecklistForm({ initial }: { initial: AuditRecord }) {
             <Input type="date" value={audit.auditDate} onChange={(e) => updateField("auditDate", e.target.value)} />
           </div>
           <div className="flex flex-col gap-2 sm:col-span-2">
-            <Label>About Organization</Label>
+            <div className="flex items-center justify-between">
+              <Label>About Organization</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleGenerateAbout}
+                disabled={!audit.organizationName.trim()}
+                title={!audit.organizationName.trim() ? "Enter an organization name first" : "Draft a starting paragraph"}
+              >
+                <Wand2 className="size-3.5" />
+                Generate with AI
+              </Button>
+            </div>
             <Textarea
               rows={4}
               value={audit.aboutOrganization}
@@ -93,18 +131,31 @@ export function AuditChecklistForm({ initial }: { initial: AuditRecord }) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>Compliance Score</span>
-            <MaturityBadge maturity={maturity} />
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-2">
-          <Progress value={scorePct} />
-          <p className="text-sm text-muted-foreground">{scorePct.toFixed(1)}% weighted score across 69 documents</p>
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Audit Score</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-1">
+            <p className="text-3xl font-semibold">
+              {availableCount} <span className="text-lg font-normal text-muted-foreground">/ {totalCount}</span>
+            </p>
+            <p className="text-sm text-muted-foreground">Documents available</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between text-base">
+              Compliance Score
+              <MaturityBadge maturity={maturity} />
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            <Progress value={scorePct} />
+            <p className="text-sm text-muted-foreground">{scorePct.toFixed(1)}% weighted compliance</p>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>
@@ -116,7 +167,6 @@ export function AuditChecklistForm({ initial }: { initial: AuditRecord }) {
               <TableRow>
                 <TableHead className="w-12">S.No</TableHead>
                 <TableHead>Document Name</TableHead>
-                <TableHead className="w-20">Priority</TableHead>
                 <TableHead className="w-24">Weightage</TableHead>
                 <TableHead className="w-48">Available / Not Available</TableHead>
               </TableRow>
@@ -126,10 +176,7 @@ export function AuditChecklistForm({ initial }: { initial: AuditRecord }) {
                 <TableRow key={doc.id}>
                   <TableCell>{i + 1}</TableCell>
                   <TableCell className="whitespace-normal">{doc.name}</TableCell>
-                  <TableCell>
-                    <PriorityBadge priority={doc.priority} />
-                  </TableCell>
-                  <TableCell>{doc.weightage.toFixed(2)}%</TableCell>
+                  <TableCell>{doc.weightage.toFixed(0)}%</TableCell>
                   <TableCell>
                     <Select
                       value={audit.documentStatus[doc.id] ?? "Not Available"}
@@ -153,9 +200,10 @@ export function AuditChecklistForm({ initial }: { initial: AuditRecord }) {
 
       <div className="flex items-center justify-between gap-3 pb-6">
         <Button variant="outline" asChild>
-          <Link href="/dashboard">Back to Dashboard</Link>
+          <Link href={backHref}>Cancel</Link>
         </Button>
         <div className="flex items-center gap-3">
+          {error && <p className="text-sm text-destructive">{error}</p>}
           <Button onClick={handleSave}>
             <FileText className="size-4" />
             {saved ? "Saved" : "Save Audit"}

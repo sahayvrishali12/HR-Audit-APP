@@ -15,12 +15,13 @@ export async function getAudit(id: string): Promise<AuditRecord | undefined> {
   return data.audit as AuditRecord
 }
 
-export async function saveAudit(audit: AuditRecord): Promise<void> {
-  await fetch("/api/audits", {
+export async function saveAudit(audit: AuditRecord): Promise<boolean> {
+  const res = await fetch("/api/audits", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(audit),
   })
+  return res.ok
 }
 
 export function createEmptyAudit(): AuditRecord {
