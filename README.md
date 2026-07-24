@@ -43,6 +43,9 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 **Edit Audit**
 ![Edit audit](docs/screenshots/edit-audit.png)
 
+**Manage Users**
+![Manage users](docs/screenshots/manage-users.png)
+
 **AI Generated Report**
 ![AI generated report](docs/screenshots/ai-report-summary.png)
 
