@@ -18,3 +18,6 @@ node_modules
 
 # Local JSON "database" (users/audits, incl. password hashes)
 /data/
+
+# Editor/assistant tooling config, local machine only
+/.claude/
