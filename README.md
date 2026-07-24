@@ -39,3 +39,12 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 **Audit Summary**
 ![Audit summary](docs/screenshots/audit-summary.png)
+
+**Edit Audit**
+![Edit audit](docs/screenshots/edit-audit.png)
+
+**AI Generated Report**
+![AI generated report](docs/screenshots/ai-report-summary.png)
+
+**Assistant and Summary Settings**
+![Assistant and summary settings](docs/screenshots/assistant-settings.png)
