@@ -9,31 +9,35 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Progress } from "@/components/ui/progress"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { MaturityBadge } from "@/components/maturity-badge"
 import { AUDIT_DOCUMENTS } from "@/lib/documents"
 import { computeScore } from "@/lib/scoring"
-import { saveAudit } from "@/lib/audit-store"
+import { saveAudit, saveDocumentStatus } from "@/lib/audit-store"
 import { generateOrgSummaryDraft } from "@/lib/org-summary"
+import { useSummarySettings } from "@/lib/use-summary-settings"
 import type { AuditRecord, DocStatus } from "@/lib/audit-types"
 
 export function AuditChecklistForm({
   initial,
   backHref = "/dashboard",
+  canEditDetails = true,
 }: {
   initial: AuditRecord
   backHref?: string
+  canEditDetails?: boolean
 }) {
   const router = useRouter()
   const [audit, setAudit] = useState<AuditRecord>(initial)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState("")
+  const { thresholds } = useSummarySettings(audit.id)
 
   const { scorePct, maturity, availableCount, totalCount } = useMemo(
-    () => computeScore(audit.documentStatus),
-    [audit.documentStatus],
+    () => computeScore(audit.documentStatus, thresholds),
+    [audit.documentStatus, thresholds],
   )
 
   function updateField<K extends keyof AuditRecord>(key: K, value: AuditRecord[K]) {
@@ -50,11 +54,15 @@ export function AuditChecklistForm({
     updateField("aboutOrganization", generateOrgSummaryDraft(audit.organizationName, audit.department))
   }
 
+  async function persist() {
+    return canEditDetails ? saveAudit(audit) : saveDocumentStatus(audit.id, audit.documentStatus)
+  }
+
   async function handleSave() {
     setError("")
-    const ok = await saveAudit(audit)
+    const ok = await persist()
     if (!ok) {
-      setError("Could not save — you may not have permission to edit this audit.")
+      setError("Could not save. You may not have permission to edit this audit.")
       return
     }
     setSaved(true)
@@ -64,9 +72,9 @@ export function AuditChecklistForm({
 
   async function handleViewReport() {
     setError("")
-    const ok = await saveAudit(audit)
+    const ok = await persist()
     if (!ok) {
-      setError("Could not save — you may not have permission to edit this audit.")
+      setError("Could not save. You may not have permission to edit this audit.")
       return
     }
     setSaved(true)
@@ -78,6 +86,11 @@ export function AuditChecklistForm({
       <Card>
         <CardHeader>
           <CardTitle>Audit Details</CardTitle>
+          {!canEditDetails && (
+            <CardDescription>
+              Organization details are managed by HR Manager or Admin. You can update document availability below.
+            </CardDescription>
+          )}
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
@@ -86,46 +99,64 @@ export function AuditChecklistForm({
               value={audit.organizationName}
               onChange={(e) => updateField("organizationName", e.target.value)}
               placeholder="Organization name"
+              disabled={!canEditDetails}
             />
           </div>
           <div className="flex flex-col gap-2">
             <Label>Department</Label>
-            <Input value={audit.department} onChange={(e) => updateField("department", e.target.value)} />
+            <Input
+              value={audit.department}
+              onChange={(e) => updateField("department", e.target.value)}
+              disabled={!canEditDetails}
+            />
           </div>
           <div className="flex flex-col gap-2">
             <Label>Auditor</Label>
-            <Input value={audit.auditorName} onChange={(e) => updateField("auditorName", e.target.value)} />
+            <Input
+              value={audit.auditorName}
+              onChange={(e) => updateField("auditorName", e.target.value)}
+              disabled={!canEditDetails}
+            />
           </div>
           <div className="flex flex-col gap-2">
             <Label>Designation of Auditor</Label>
             <Input
               value={audit.auditorDesignation}
               onChange={(e) => updateField("auditorDesignation", e.target.value)}
+              disabled={!canEditDetails}
             />
           </div>
           <div className="flex flex-col gap-2">
             <Label>Audit Date</Label>
-            <Input type="date" value={audit.auditDate} onChange={(e) => updateField("auditDate", e.target.value)} />
+            <Input
+              type="date"
+              value={audit.auditDate}
+              onChange={(e) => updateField("auditDate", e.target.value)}
+              disabled={!canEditDetails}
+            />
           </div>
           <div className="flex flex-col gap-2 sm:col-span-2">
             <div className="flex items-center justify-between">
               <Label>About Organization</Label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleGenerateAbout}
-                disabled={!audit.organizationName.trim()}
-                title={!audit.organizationName.trim() ? "Enter an organization name first" : "Draft a starting paragraph"}
-              >
-                <Wand2 className="size-3.5" />
-                Generate with AI
-              </Button>
+              {canEditDetails && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleGenerateAbout}
+                  disabled={!audit.organizationName.trim()}
+                  title={!audit.organizationName.trim() ? "Enter an organization name first" : "Draft a starting paragraph"}
+                >
+                  <Wand2 className="size-3.5" />
+                  Generate with AI
+                </Button>
+              )}
             </div>
             <Textarea
               rows={4}
               value={audit.aboutOrganization}
               onChange={(e) => updateField("aboutOrganization", e.target.value)}
+              disabled={!canEditDetails}
             />
           </div>
         </CardContent>

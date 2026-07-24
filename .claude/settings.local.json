@@ -5,7 +5,12 @@
       "PowerShell(pnpm --version)",
       "PowerShell(npm --version)",
       "PowerShell(node --version)",
-      "mcp__Claude_in_Chrome__navigate"
+      "mcp__Claude_in_Chrome__navigate",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000 --max-time 3)",
+      "Bash(curl -s http://localhost:3000 --max-time 3)",
+      "Bash(curl -s http://localhost:3000 --max-time 5)",
+      "Bash(xargs -0 du -h)",
+      "Bash(markitdown \"C:\\\\Users\\\\vrish\\\\Downloads\\\\HR Governance Audit ver 1.0.xlsx\")"
     ]
   }
 }

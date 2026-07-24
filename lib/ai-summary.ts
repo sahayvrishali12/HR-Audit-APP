@@ -1,79 +1,85 @@
 import { AUDIT_DOCUMENTS } from "./documents"
 import { computeScore, missingDocuments } from "./scoring"
-import type { AuditRecord, Maturity } from "./audit-types"
+import type { AuditRecord, Maturity, MaturityThresholds } from "./audit-types"
 
 const DOC_INSIGHTS: Record<string, string> = {
   "Employee Handbook":
-    "the foundational reference for workplace policies and expectations — without it, employees lack a single source of truth.",
+    "This document functions as the primary reference for workplace policy and employee expectation. Its absence removes a consolidated point of reference for organizational conduct and procedure.",
   "Code of Conduct":
-    "sets expected standards of ethics and behavior; its absence increases the risk of inconsistent disciplinary outcomes.",
+    "This document establishes the expected standard of ethics and behavior within the organization. Its absence increases the likelihood of inconsistent disciplinary outcomes.",
   "Confidentiality Agreement/NDA":
-    "protects proprietary and client information; missing this exposes the organization to data-leakage and IP risk.",
-  "Leave Policy": "governs entitlements and approval workflow; gaps here lead to inconsistent leave administration.",
+    "This document protects proprietary and client information. Its absence exposes the organization to risk involving unauthorized disclosure of confidential information.",
+  "Leave Policy":
+    "This document governs leave entitlement and the associated approval procedure. Its absence contributes to inconsistency in leave administration.",
   "Attendance Policy":
-    "defines working-hour expectations; its absence creates ambiguity in performance and payroll decisions.",
+    "This document defines expectations regarding working hours and attendance. Its absence introduces ambiguity into performance and payroll determinations.",
   "POSH Policy":
-    "a statutory requirement for workplace harassment prevention — this is a legal compliance gap, not just a best practice.",
+    "This document fulfills a statutory requirement for the prevention of workplace harassment. Its absence constitutes a regulatory compliance gap rather than a procedural gap alone.",
   "Information Security Policy":
-    "protects systems and data from unauthorized access; absence raises cybersecurity and data-breach exposure.",
-  "Data Privacy Policy": "governs handling of personal data; missing this creates regulatory exposure.",
+    "This document protects organizational systems and data from unauthorized access. Its absence increases exposure to cybersecurity risk and potential compromise of data.",
+  "Data Privacy Policy":
+    "This document governs the handling of personal data. Its absence creates exposure under applicable data protection regulation.",
   "Work From Home Policy":
-    "sets expectations for remote-work eligibility and conduct; absence causes inconsistent remote practices.",
+    "This document defines eligibility and conduct expectations associated with remote work. Its absence results in inconsistent application of remote work practice.",
   "Disciplinary Policy":
-    "defines the process for handling misconduct; without it, disciplinary actions risk being legally challengeable.",
-  "Asset Handover Form": "tracks company asset issuance and return; missing this creates accountability gaps at exit.",
+    "This document defines the process for addressing employee misconduct. Its absence increases the likelihood that disciplinary action may be challenged on procedural grounds.",
+  "Asset Handover Form":
+    "This document records the issuance and return of organizational assets. Its absence creates a gap in asset accountability at the time an employee exits the organization.",
   "Software Access Request Form":
-    "governs provisioning of system access; absence increases the risk of unauthorized or excessive access grants.",
+    "This document governs the provisioning of system access to employees. Its absence increases the risk that access may be granted without appropriate authorization.",
   "HR Governance Policy/Framework":
-    "the overarching framework tying HR governance together; without it, HR practices lack a documented backbone.",
+    "This document provides the overarching framework for HR governance within the organization. Its absence indicates that HR practice lacks a documented foundation.",
   "HR Organization Structure":
-    "clarifies reporting lines and accountability; missing this creates ambiguity in ownership of HR decisions.",
+    "This document defines reporting lines and accountability within the HR function. Its absence introduces ambiguity regarding ownership of HR decisions.",
   "HR Roles and Responsibility Matrix":
-    "defines who owns which HR process; absence risks duplicated or dropped responsibilities.",
+    "This document defines ownership of individual HR processes. Its absence creates risk of duplicated or omitted responsibility.",
   "Background Verification Policy":
-    "sets standards for pre-employment screening; missing this increases hiring and workplace-safety risk.",
+    "This document defines the standard for verification conducted prior to employment. Its absence increases risk associated with hiring decisions and workplace safety.",
   "Compensation and Benefits Policy":
-    "documents pay philosophy and benefits structure; absence risks inconsistent or inequitable decisions.",
+    "This document defines compensation philosophy and benefit structure. Its absence creates risk of inconsistency in compensation decisions.",
   "Performance Management Policy":
-    "defines how performance is assessed; without it, reviews and promotions lack a consistent standard.",
+    "This document defines the standard for performance assessment. Its absence removes a consistent basis for review and promotion decisions.",
   "Promotion and Increment Policy":
-    "governs career-progression criteria; missing this risks a perception of unfairness in advancement decisions.",
+    "This document defines the criteria applied to career progression. Its absence risks the perception that advancement decisions are made without consistent criteria.",
   "Learning and Development Policy":
-    "formalizes training investment and access; absence risks inconsistent skill development across the organization.",
+    "This document formalizes the organization's investment in and access to training. Its absence risks inconsistent skill development across the workforce.",
   "Employee Grievance Policy":
-    "provides a formal channel for raising concerns; missing this leaves employees without recourse.",
+    "This document provides a formal channel for raising workplace concerns. Its absence leaves employees without a documented avenue for recourse.",
   "Conflict of Interest Policy":
-    "governs disclosure of competing interests; absence increases the risk of undisclosed conflicts affecting decisions.",
+    "This document governs the disclosure of competing interests. Its absence increases the risk that undisclosed conflicts may influence organizational decisions.",
   "Equal Opportunity/DEI Policy":
-    "documents commitment to non-discriminatory practices; missing this is both a compliance and reputational risk.",
+    "This document documents the organization's commitment to nondiscriminatory practice. Its absence represents both a compliance and reputational exposure.",
   "Retention Policy":
-    "defines document and record retention periods; absence risks non-compliance with record-keeping requirements.",
+    "This document defines the retention period applicable to organizational records. Its absence risks noncompliance with recordkeeping requirements.",
   "HR Risk & Compliance Register":
-    "the running log of HR risks and mitigations; without it, there is no structured view of the organization's own compliance posture.",
+    "This document maintains a structured record of HR risk and associated mitigation measures. Its absence indicates the organization lacks a consolidated view of its own compliance position.",
 }
 
-const COMPLIANCE_CRITICAL = new Set<string>([
+export const DEFAULT_CRITICAL_DOCUMENTS: string[] = [
   "POSH Policy",
   "Information Security Policy",
   "Data Privacy Policy",
   "Background Verification Policy",
   "Equal Opportunity/DEI Policy",
   "HR Risk & Compliance Register",
-])
+]
 
 const MATURITY_NARRATIVE: Record<Maturity, string> = {
   "Non Compliant":
-    "significant, urgent gaps in HR governance documentation that expose the organization to compliance and operational risk",
-  "Partially Compliant": "a foundational governance base with meaningful gaps still to close",
-  Compliant: "a solid, largely complete HR governance framework with a handful of gaps remaining",
-  "Highly Compliant": "a mature, well-documented HR governance framework",
+    "This band indicates substantial gaps in HR governance documentation and represents material exposure to compliance and operational risk.",
+  "Partially Compliant":
+    "This band indicates a foundational level of HR governance documentation with meaningful gaps that remain to be addressed.",
+  Compliant:
+    "This band indicates a largely complete HR governance documentation framework with a limited number of gaps remaining.",
+  "Highly Compliant": "This band indicates a comprehensive and thoroughly documented HR governance framework.",
 }
 
 const MATURITY_CADENCE: Record<Maturity, string> = {
-  "Non Compliant": "Immediate remediation is recommended before proceeding further; re-audit within 30 days.",
-  "Partially Compliant": "A focused remediation plan over the next quarter is recommended.",
-  Compliant: "Routine follow-up at the next scheduled audit should be sufficient.",
-  "Highly Compliant": "Maintain current practices and monitor for policy drift at the next scheduled review.",
+  "Non Compliant": "Immediate remediation is recommended, followed by a subsequent audit within thirty days.",
+  "Partially Compliant": "A structured remediation plan over the subsequent quarter is recommended.",
+  Compliant: "Routine follow up at the next scheduled audit is considered sufficient.",
+  "Highly Compliant":
+    "Continued maintenance of current practice is recommended, with monitoring for policy change at the next scheduled review.",
 }
 
 export interface AuditSummary {
@@ -83,6 +89,13 @@ export interface AuditSummary {
   nextSteps: string[]
 }
 
+function joinNames(names: string[]): string {
+  if (names.length === 0) return ""
+  if (names.length === 1) return names[0]
+  if (names.length === 2) return `${names[0]} and ${names[1]}`
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`
+}
+
 function firstSentence(text: string): string {
   const trimmed = (text || "").trim()
   if (!trimmed) return ""
@@ -90,22 +103,24 @@ function firstSentence(text: string): string {
   return (match ? match[0] : trimmed.split("\n")[0]).trim()
 }
 
-/** A short, one-paragraph blurb for the View Details page — organization gist + audit outcome. */
-export function generateQuickSummary(audit: AuditRecord): string {
-  const { scorePct, maturity, availableCount, totalCount } = computeScore(audit.documentStatus)
-  const orgLabel = audit.organizationName || "This organization"
-  const about = firstSentence(audit.aboutOrganization)
-  const outcome = `${orgLabel} has ${availableCount} of ${totalCount} HR governance documents in place — a Compliance Score of ${scorePct.toFixed(0)}% (${maturity}).`
-  return about ? `${about} ${outcome}` : outcome
+function possessive(name: string): string {
+  return name.endsWith("s") ? `${name}'` : `${name}'s`
 }
 
-export function generateAuditSummary(audit: AuditRecord): AuditSummary {
-  const { scorePct, maturity, availableCount, totalCount } = computeScore(audit.documentStatus)
+export interface AuditSummaryOptions {
+  criticalDocuments?: string[]
+  thresholds?: MaturityThresholds
+}
+
+export function generateAuditSummary(audit: AuditRecord, options?: AuditSummaryOptions): AuditSummary {
+  const criticalDocuments = new Set(options?.criticalDocuments ?? DEFAULT_CRITICAL_DOCUMENTS)
+  const { scorePct, maturity, availableCount, totalCount } = computeScore(audit.documentStatus, options?.thresholds)
   const missing = missingDocuments(audit)
   const missingNames = new Set(missing.map((d) => d.name))
   const available = AUDIT_DOCUMENTS.filter((d) => !missingNames.has(d.name))
-  const missingCritical = missing.filter((d) => COMPLIANCE_CRITICAL.has(d.name))
-  const missingOther = missing.filter((d) => !COMPLIANCE_CRITICAL.has(d.name))
+  const missingCritical = missing.filter((d) => criticalDocuments.has(d.name))
+  const missingOther = missing.filter((d) => !criticalDocuments.has(d.name))
+  const criticalAvailable = available.filter((d) => criticalDocuments.has(d.name))
 
   const orgLabel = audit.organizationName || "the organization"
   const auditorLabel = audit.auditorName || "the assigned auditor"
@@ -114,66 +129,96 @@ export function generateAuditSummary(audit: AuditRecord): AuditSummary {
   const executiveSummary: string[] = []
 
   executiveSummary.push(
-    `${orgLabel} was audited by ${auditorLabel} (${designationLabel}) on ${audit.auditDate || "the recorded date"}. ` +
-      `Across the ${totalCount}-document HR policy governance checklist, the organization scored an Audit Score of ` +
-      `${availableCount} / ${totalCount} documents available, translating to a Compliance Score of ${scorePct.toFixed(1)}% — ` +
-      `the ${maturity} band. This reflects ${MATURITY_NARRATIVE[maturity]}.`,
+    `The Compliance Score represents an objective assessment of ${possessive(orgLabel)} HR governance documentation, based on the availability of ${totalCount} required documents and an assigned weightage of four percent per document. ${orgLabel} was audited by ${auditorLabel}, ${designationLabel}, on ${audit.auditDate || "the recorded date"}. Of the ${totalCount} required documents, ${availableCount} were confirmed available, resulting in an Audit Score of ${availableCount} of ${totalCount} and a Compliance Score of ${scorePct.toFixed(1)} percent. This result places the organization in the ${maturity} band. ${MATURITY_NARRATIVE[maturity]}`,
   )
 
   if (missing.length > 0) {
     if (missingCritical.length > 0) {
+      const verbBe = missingCritical.length === 1 ? "is" : "are"
+      const verbRepresent = missingCritical.length === 1 ? "represents" : "represent"
+      const gapNoun = missingCritical.length === 1 ? "documentation gap" : "documentation gaps"
       executiveSummary.push(
-        `${missingCritical.length} of the missing document${missingCritical.length === 1 ? "" : "s"} — ` +
-          `${missingCritical.map((d) => d.name).join(", ")} — ${
-            missingCritical.length === 1 ? "carries" : "carry"
-          } statutory or risk-critical weight and should be treated ` +
-          `as the top remediation priority regardless of equal scoring weight.`,
+        `${missingCritical.length} of the documents not confirmed available, specifically ${joinNames(
+          missingCritical.map((d) => d.name),
+        )}, ${verbBe} associated with statutory obligation or organizational risk and ${verbRepresent} the ${gapNoun} of highest significance identified in this audit.`,
       )
     }
     if (missingOther.length > 0) {
+      const verb = missingOther.length === 1 ? "represents" : "represent"
       executiveSummary.push(
-        `The remaining ${missingOther.length} gap${missingOther.length === 1 ? "" : "s"} (${missingOther
-          .map((d) => d.name)
-          .join(", ")}) ${
-          missingOther.length === 1 ? "is" : "are"
-        } operational or administrative in nature and can be scheduled after the critical items above.`,
+        `The remaining ${missingOther.length} document${missingOther.length === 1 ? "" : "s"} not confirmed available, ${joinNames(
+          missingOther.map((d) => d.name),
+        )}, ${verb} documentation of an operational or administrative nature.`,
       )
     }
   } else {
-    executiveSummary.push(`All ${totalCount} documents in the checklist are marked Available — no outstanding gaps were identified.`)
+    executiveSummary.push(
+      `All ${totalCount} required documents are confirmed available. No documentation gaps were identified in this audit.`,
+    )
   }
 
   const strengths: string[] = []
   if (available.length > 0) {
-    strengths.push(
-      `${available.length} of ${totalCount} documents are in place, giving ${orgLabel} a working foundation to build on.`,
-    )
-    const criticalAvailable = available.filter((d) => COMPLIANCE_CRITICAL.has(d.name))
+    strengths.push(`${available.length} of ${totalCount} required documents are confirmed available.`)
     if (criticalAvailable.length > 0) {
       strengths.push(
-        `Statutory/risk-critical documents already in place: ${criticalAvailable.map((d) => d.name).join(", ")}.`,
+        `The following documents, associated with statutory obligation or organizational risk, are confirmed available: ${joinNames(
+          criticalAvailable.map((d) => d.name),
+        )}.`,
       )
     }
   } else {
-    strengths.push("No documents are currently marked Available — governance documentation should be established from the ground up.")
+    strengths.push("No required documents are confirmed available at this time.")
   }
 
   const improvements = missing.map((doc) => ({
     name: doc.name,
-    note: DOC_INSIGHTS[doc.name] ?? "supports the organization's overall HR governance framework.",
+    note: DOC_INSIGHTS[doc.name] ?? "This document contributes to the organization's overall HR governance framework.",
   }))
 
   const nextSteps: string[] = []
   if (missingCritical.length > 0) {
     nextSteps.push(
-      `Prioritize sourcing or issuing the statutory/risk-critical gaps first: ${missingCritical.map((d) => d.name).join(", ")}.`,
+      `Priority should be given to obtaining or formalizing the following documents, associated with statutory obligation or organizational risk: ${joinNames(
+        missingCritical.map((d) => d.name),
+      )}.`,
     )
   }
   if (missingOther.length > 0) {
-    nextSteps.push(`Schedule the remaining operational documents for the next remediation cycle: ${missingOther.map((d) => d.name).join(", ")}.`)
+    nextSteps.push(
+      `The remaining documentation of an operational or administrative nature should be addressed in the subsequent remediation cycle: ${joinNames(
+        missingOther.map((d) => d.name),
+      )}.`,
+    )
   }
   nextSteps.push(MATURITY_CADENCE[maturity])
-  nextSteps.push("Re-run this audit after remediation to confirm the maturity rating has improved.")
+  if (missing.length > 0) {
+    nextSteps.push(
+      "A subsequent audit is recommended following remediation to confirm improvement in the maturity rating.",
+    )
+  } else {
+    nextSteps.push("Subsequent periodic audits are recommended to confirm continued compliance.")
+  }
 
   return { executiveSummary, strengths, improvements, nextSteps }
+}
+
+/** The organization's own summary text, trimmed to its first paragraph and capped in length, for compact display. */
+export function organizationSummarySnippet(aboutOrganization: string): string {
+  const trimmed = (aboutOrganization || "").trim()
+  if (!trimmed) return "No organization summary has been provided for this audit."
+  const firstParagraph = trimmed.split(/\n\s*\n/)[0].trim()
+  if (firstParagraph.length <= 280) return firstParagraph
+  return `${firstParagraph.slice(0, 277).trim()}...`
+}
+
+/** A short, one paragraph blurb for the View Details page: organization context plus audit outcome. */
+export function generateQuickSummary(audit: AuditRecord, thresholds?: MaturityThresholds): string {
+  const { scorePct, maturity, availableCount, totalCount } = computeScore(audit.documentStatus, thresholds)
+  const orgLabel = audit.organizationName || "This organization"
+  const about = firstSentence(audit.aboutOrganization)
+  const outcome = `${orgLabel} has ${availableCount} of ${totalCount} required HR governance documents confirmed available, resulting in a Compliance Score of ${scorePct.toFixed(
+    0,
+  )} percent and a maturity classification of ${maturity}.`
+  return about ? `${about} ${outcome}` : outcome
 }

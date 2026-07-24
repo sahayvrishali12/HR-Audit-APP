@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { AuditChecklistForm } from "@/components/audit-checklist-form"
 import { getAudit } from "@/lib/audit-store"
 import { useCurrentUser } from "@/lib/use-current-user"
-import { canEdit } from "@/lib/roles"
+import { canEdit, canEditDocumentStatus } from "@/lib/roles"
 import type { AuditRecord } from "@/lib/audit-types"
 
 export default function EditAuditPage() {
@@ -13,6 +13,7 @@ export default function EditAuditPage() {
   const router = useRouter()
   const [audit, setAudit] = useState<AuditRecord | null | undefined>(undefined)
   const user = useCurrentUser()
+  const allowed = !!user && (canEdit(user.role) || canEditDocumentStatus(user.role))
 
   useEffect(() => {
     let active = true
@@ -25,10 +26,10 @@ export default function EditAuditPage() {
   }, [params.id])
 
   useEffect(() => {
-    if (user === null || (user && !canEdit(user.role))) {
+    if (user === null || (user && !allowed)) {
       router.replace(`/audit/${params.id}`)
     }
-  }, [user, params.id, router])
+  }, [user, allowed, params.id, router])
 
   if (audit === undefined || user === undefined) return null
 
@@ -43,7 +44,7 @@ export default function EditAuditPage() {
     )
   }
 
-  if (!user || !canEdit(user.role)) return null
+  if (!user || !allowed) return null
 
-  return <AuditChecklistForm initial={audit} backHref={`/audit/${audit.id}`} />
+  return <AuditChecklistForm initial={audit} backHref={`/audit/${audit.id}`} canEditDetails={canEdit(user.role)} />
 }

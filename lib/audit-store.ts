@@ -24,6 +24,15 @@ export async function saveAudit(audit: AuditRecord): Promise<boolean> {
   return res.ok
 }
 
+export async function saveDocumentStatus(auditId: string, documentStatus: Record<string, DocStatus>): Promise<boolean> {
+  const res = await fetch(`/api/audits/${auditId}/document-status`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ documentStatus }),
+  })
+  return res.ok
+}
+
 export function createEmptyAudit(): AuditRecord {
   const documentStatus: Record<string, DocStatus> = {}
   for (const doc of AUDIT_DOCUMENTS) {

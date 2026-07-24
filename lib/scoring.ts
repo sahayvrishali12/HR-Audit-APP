@@ -1,8 +1,8 @@
 import { AUDIT_DOCUMENTS, TOTAL_WEIGHTAGE } from "./documents"
-import type { AuditRecord } from "./audit-types"
+import type { AuditRecord, MaturityThresholds } from "./audit-types"
 import { maturityFromScore } from "./audit-types"
 
-export function computeScore(documentStatus: Record<string, string>) {
+export function computeScore(documentStatus: Record<string, string>, thresholds?: MaturityThresholds) {
   const availableCount = AUDIT_DOCUMENTS.reduce((count, doc) => {
     return documentStatus[doc.id] === "Available" ? count + 1 : count
   }, 0)
@@ -14,7 +14,7 @@ export function computeScore(documentStatus: Record<string, string>) {
     totalCount,
     earnedWeightage: earned,
     scorePct,
-    maturity: maturityFromScore(scorePct),
+    maturity: maturityFromScore(scorePct, thresholds),
   }
 }
 

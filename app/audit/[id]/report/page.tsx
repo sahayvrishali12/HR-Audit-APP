@@ -7,14 +7,17 @@ import { ArrowLeft, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { MaturityBadge } from "@/components/maturity-badge"
+import { AssistantChat } from "@/components/assistant-chat"
 import { getAudit } from "@/lib/audit-store"
 import { computeScore } from "@/lib/scoring"
 import { generateAuditSummary } from "@/lib/ai-summary"
+import { useSummarySettings } from "@/lib/use-summary-settings"
 import type { AuditRecord } from "@/lib/audit-types"
 
 export default function AiReportPage() {
   const params = useParams<{ id: string }>()
   const [audit, setAudit] = useState<AuditRecord | null | undefined>(undefined)
+  const { thresholds, criticalDocuments } = useSummarySettings(audit?.id)
 
   useEffect(() => {
     let active = true
@@ -39,8 +42,8 @@ export default function AiReportPage() {
     )
   }
 
-  const { scorePct, maturity, availableCount, totalCount } = computeScore(audit.documentStatus)
-  const { executiveSummary, strengths, improvements, nextSteps } = generateAuditSummary(audit)
+  const { scorePct, maturity, availableCount, totalCount } = computeScore(audit.documentStatus, thresholds)
+  const { executiveSummary, strengths, improvements, nextSteps } = generateAuditSummary(audit, { thresholds, criticalDocuments })
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 p-6">
@@ -102,12 +105,12 @@ export default function AiReportPage() {
         </CardHeader>
         <CardContent>
           {improvements.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No missing documents — no improvements required.</p>
+            <p className="text-sm text-muted-foreground">All required documents are confirmed available. No improvements are required.</p>
           ) : (
             <ul className="ml-1 list-inside list-disc space-y-2 text-sm text-muted-foreground">
               {improvements.map((item) => (
                 <li key={item.name}>
-                  <span className="font-medium text-foreground">{item.name}</span> is missing — {item.note}
+                  <span className="font-medium text-foreground">{item.name}</span> is not confirmed available. {item.note}
                 </li>
               ))}
             </ul>
@@ -127,6 +130,8 @@ export default function AiReportPage() {
           </ol>
         </CardContent>
       </Card>
+
+      <AssistantChat auditId={audit.id} />
     </div>
   )
 }

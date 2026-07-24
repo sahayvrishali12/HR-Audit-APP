@@ -1,20 +1,51 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, Pencil, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { MaturityBadge, DocStatusBadge } from "@/components/maturity-badge"
+import { AssistantChat } from "@/components/assistant-chat"
 import { AUDIT_DOCUMENTS } from "@/lib/documents"
 import { computeScore } from "@/lib/scoring"
 import { generateQuickSummary } from "@/lib/ai-summary"
-import type { AuditRecord } from "@/lib/audit-types"
+import { useSummarySettings } from "@/lib/use-summary-settings"
+import { saveDocumentStatus } from "@/lib/audit-store"
+import type { AuditRecord, DocStatus } from "@/lib/audit-types"
 
-export function AuditSummaryView({ audit, canEditAudit }: { audit: AuditRecord; canEditAudit: boolean }) {
-  const { scorePct, maturity, availableCount, totalCount } = computeScore(audit.documentStatus)
-  const quickSummary = generateQuickSummary(audit)
+export function AuditSummaryView({
+  audit,
+  canEditAudit,
+  canEditDocumentStatus,
+}: {
+  audit: AuditRecord
+  canEditAudit: boolean
+  canEditDocumentStatus: boolean
+}) {
+  const { thresholds } = useSummarySettings(audit.id)
+  const [documentStatus, setDocumentStatus] = useState<Record<string, DocStatus>>(audit.documentStatus)
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const [error, setError] = useState("")
+
+  const { scorePct, maturity, availableCount, totalCount } = computeScore(documentStatus, thresholds)
+  const quickSummary = generateQuickSummary({ ...audit, documentStatus }, thresholds)
+
+  async function handleToggleStatus(docId: string) {
+    const previous = documentStatus
+    const next: DocStatus = previous[docId] === "Available" ? "Not Available" : "Available"
+    setError("")
+    setDocumentStatus((prev) => ({ ...prev, [docId]: next }))
+    setSavingId(docId)
+    const ok = await saveDocumentStatus(audit.id, { [docId]: next })
+    setSavingId(null)
+    if (!ok) {
+      setDocumentStatus(previous)
+      setError("Could not save the change. Please try again.")
+    }
+  }
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
@@ -24,12 +55,22 @@ export function AuditSummaryView({ audit, canEditAudit }: { audit: AuditRecord; 
             <h1 className="text-2xl font-semibold text-balance">{audit.organizationName || "Untitled Organization"}</h1>
             <p className="text-sm text-muted-foreground">Audit summary</p>
           </div>
-          <Button variant="outline" asChild>
-            <Link href="/dashboard">
-              <ArrowLeft className="size-4" />
-              Back to Dashboard
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            {(canEditAudit || canEditDocumentStatus) && (
+              <Button asChild>
+                <Link href={`/audit/${audit.id}/edit`}>
+                  <Pencil className="size-4" />
+                  Edit Audit
+                </Link>
+              </Button>
+            )}
+            <Button variant="outline" asChild>
+              <Link href="/dashboard">
+                <ArrowLeft className="size-4" />
+                Back to Dashboard
+              </Link>
+            </Button>
+          </div>
         </div>
         <p className="text-sm leading-relaxed text-muted-foreground">{quickSummary}</p>
       </div>
@@ -41,18 +82,18 @@ export function AuditSummaryView({ audit, canEditAudit }: { audit: AuditRecord; 
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Department</p>
-            <p className="text-sm font-medium">{audit.department || "—"}</p>
+            <p className="text-sm font-medium">{audit.department || "Not provided"}</p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Auditor</p>
             <p className="text-sm font-medium">
-              {audit.auditorName || "—"}
+              {audit.auditorName || "Not provided"}
               {audit.auditorDesignation && ` (${audit.auditorDesignation})`}
             </p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Audit Date</p>
-            <p className="text-sm font-medium">{audit.auditDate || "—"}</p>
+            <p className="text-sm font-medium">{audit.auditDate || "Not provided"}</p>
           </div>
           {audit.aboutOrganization && (
             <div className="sm:col-span-2">
@@ -92,8 +133,12 @@ export function AuditSummaryView({ audit, canEditAudit }: { audit: AuditRecord; 
       <Card>
         <CardHeader>
           <CardTitle>HR Policy Governance Documents</CardTitle>
+          {canEditDocumentStatus && (
+            <CardDescription>Click a status badge to mark a document available or not available.</CardDescription>
+          )}
         </CardHeader>
         <CardContent>
+          {error && <p className="mb-3 text-sm text-destructive">{error}</p>}
           <Table>
             <TableHeader>
               <TableRow>
@@ -110,7 +155,18 @@ export function AuditSummaryView({ audit, canEditAudit }: { audit: AuditRecord; 
                   <TableCell className="whitespace-normal">{doc.name}</TableCell>
                   <TableCell>{doc.weightage.toFixed(0)}%</TableCell>
                   <TableCell className="text-right">
-                    <DocStatusBadge available={audit.documentStatus[doc.id] === "Available"} />
+                    {canEditDocumentStatus ? (
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStatus(doc.id)}
+                        disabled={savingId === doc.id}
+                        className="inline-flex cursor-pointer rounded-md transition-opacity hover:opacity-80 disabled:cursor-wait disabled:opacity-60"
+                      >
+                        <DocStatusBadge available={documentStatus[doc.id] === "Available"} />
+                      </button>
+                    ) : (
+                      <DocStatusBadge available={documentStatus[doc.id] === "Available"} />
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -118,6 +174,8 @@ export function AuditSummaryView({ audit, canEditAudit }: { audit: AuditRecord; 
           </Table>
         </CardContent>
       </Card>
+
+      <AssistantChat auditId={audit.id} />
 
       <div className="flex items-center justify-between gap-3 pb-6">
         <Button variant="outline" asChild>
@@ -130,14 +188,6 @@ export function AuditSummaryView({ audit, canEditAudit }: { audit: AuditRecord; 
               AI Generated Report
             </Link>
           </Button>
-          {canEditAudit && (
-            <Button asChild>
-              <Link href={`/audit/${audit.id}/edit`}>
-                <Pencil className="size-4" />
-                Edit Audit
-              </Link>
-            </Button>
-          )}
         </div>
       </div>
     </div>

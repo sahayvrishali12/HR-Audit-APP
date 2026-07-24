@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { AuditSummaryView } from "@/components/audit-summary-view"
 import { getAudit } from "@/lib/audit-store"
 import { useCurrentUser } from "@/lib/use-current-user"
-import { canEdit } from "@/lib/roles"
+import { canEdit, canEditDocumentStatus } from "@/lib/roles"
 import type { AuditRecord } from "@/lib/audit-types"
 
 export default function ViewAuditPage() {
@@ -37,5 +37,11 @@ export default function ViewAuditPage() {
     )
   }
 
-  return <AuditSummaryView audit={audit} canEditAudit={!!user && canEdit(user.role)} />
+  return (
+    <AuditSummaryView
+      audit={audit}
+      canEditAudit={!!user && canEdit(user.role)}
+      canEditDocumentStatus={!!user && canEditDocumentStatus(user.role)}
+    />
+  )
 }
