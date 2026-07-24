@@ -29,15 +29,13 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Demo Credentials
-
-| Role | Corporate Email | Password |
-|---|---|---|
-| Admin | `admin@hrgovernance.com` | `falcon25` |
-| HR Manager | `hr.manager@hrgovernance.com` | `harbor42` |
-| HR Employee | `hr.employee@hrgovernance.com` | `comet19` |
-| IT | `it.guy@hrgovernance.com` | `nimbus07` |
-
 ## Screenshots
 
-_Coming soon._
+**Login**
+![Login page](docs/screenshots/login.png)
+
+**Dashboard**
+![Dashboard overview](docs/screenshots/dashboard.png)
+
+**Audit Summary**
+![Audit summary](docs/screenshots/audit-summary.png)
